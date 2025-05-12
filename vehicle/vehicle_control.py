@@ -118,7 +118,8 @@ class BinaryDataHandler:
     # пример получения скриншотов с камер
     def example_1(self):
         lower = np.array([0, 0, 0])
-        upper = np.array([179, 30, 187])
+        # upper = np.array([179, 30, 187])
+        upper = np.array([179, 52, 179])
         # Set minimum and maximum HSV values to display
         lower_line = np.array([0, 54, 157])
         upper_line = np.array([60, 255, 210])
@@ -133,6 +134,7 @@ class BinaryDataHandler:
             image_data = self.connection.receive_data()
             nparr = np.frombuffer(image_data, np.uint8)
             images = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            hsv = cv2.cvtColor(images, cv2.COLOR_BGR2HSV)
             
             try:
                 # Convert to HSV format and color threshold
@@ -149,10 +151,14 @@ class BinaryDataHandler:
                 gauss_result_line = cv2.GaussianBlur(result_line, (3, 3), 0)
                 median_result_line = cv2.medianBlur(gauss_result_line, 3)
                 
-                alpha = 2.0  # например, 2.0 — сильный контраст
+                alpha = 5.0  # например, 2.0 — сильный контраст
                 beta = 0     # можно добавить яркость
 
-                result_line = cv2.convertScaleAbs(median_result_line, alpha=alpha, beta=beta)
+                # (опционально) Убираем шум
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                result_noise = cv2.morphologyEx(median_result_line, cv2.MORPH_OPEN, kernel)
+
+                result_line = cv2.convertScaleAbs(result_noise, alpha=alpha, beta=beta)
 
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
