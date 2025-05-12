@@ -5,7 +5,7 @@ def nothing(x):
     pass
 
 # Load image
-image = cv2.imread('camera1.webp')
+image = cv2.imread('camera2.webp')
 
 # Create a window
 cv2.namedWindow('image')
