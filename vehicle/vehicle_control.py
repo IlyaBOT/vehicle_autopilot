@@ -140,7 +140,12 @@ class BinaryDataHandler:
                 image = remove_small_particles(images)
                 
                 gauss_result_line = cv2.GaussianBlur(result_line, (3, 3), 0)
-                result_line = cv2.medianBlur(gauss_result_line, 3)
+                median_result_line = cv2.medianBlur(gauss_result_line, 3)
+                
+                alpha = 2.0  # например, 2.0 — сильный контраст
+                beta = 0     # можно добавить яркость
+
+                result_line = cv2.convertScaleAbs(median_result_line, alpha=alpha, beta=beta)
 
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
