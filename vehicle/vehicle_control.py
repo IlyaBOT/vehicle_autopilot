@@ -119,7 +119,7 @@ class BinaryDataHandler:
     def example_1(self):
         lower = np.array([0, 0, 0])
         # upper = np.array([179, 30, 187])
-        upper = np.array([179, 52, 179])
+        upper = np.array([179, 48, 187])
         # Set minimum and maximum HSV values to display
         lower_line = np.array([0, 54, 157])
         upper_line = np.array([60, 255, 210])
