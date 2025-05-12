@@ -45,16 +45,23 @@ def draw_rotated_rectangle(image, box, angle, center, speed):
 
     # Угол и скорость
     font = cv2.FONT_HERSHEY_SIMPLEX
-    text = f"Angle: {angle:.1f} deg | Speed: {speed:.2f} px/s"
-    cv2.putText(image, text, (int(center[0]) - 80, int(center[1]) - 30),
+    text_angle = f"Angle: {angle:.1f} deg"
+    text_speed = f"Speed: {speed:.2f} px/s"
+    
+    # Рисуем угол поворота
+    cv2.putText(image, text_angle, (int(center[0]) - 80, int(center[1]) - 70),
+                font, 0.6, (0, 0, 255), 2)
+    # Рисуем скорость
+    cv2.putText(image, text_speed, (int(center[0]) - 80, int(center[1]) - 45),
                 font, 0.6, (0, 0, 255), 2)
 
-    # Линия направления
+    # Линия направления робота
     line_length = 27
     end_x = int(center[0] + line_length * math.cos(math.radians(angle)))
     end_y = int(center[1] + line_length * math.sin(math.radians(angle)))
     val = image[end_y][end_x].copy()
     cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)
+    
     return val
 
 
