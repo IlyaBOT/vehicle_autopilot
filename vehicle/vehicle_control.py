@@ -2,13 +2,15 @@ import random
 from vehicle.Vehicle import Vehicle
 import asyncio
 from connection.SocketConnection import SocketConnection
-from collections import deque
 import json
 import struct
 import time
 import cv2
 import numpy as np
 import math
+
+
+old_center = []
 
 
 def contour_to_rotated_rectangle(contour):
@@ -39,30 +41,49 @@ def contour_to_rotated_rectangle(contour):
     return box, angle, center
 
 
-def draw_rotated_rectangle(image, box, angle, center, speed):
+def draw_rotated_rectangle(image, box, angle, center):
+    """
+    Рисует прямоугольник и информацию об угле на изображении
+
+    Параметры:
+        image - исходное изображение
+        box - точки прямоугольника
+        angle - угол наклона
+        center - центр прямоугольника
+    """
+    # Рисуем прямоугольник
     cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
+
+    # Рисуем центр
     cv2.circle(image, (int(center[0]), int(center[1])), 5, (255, 0, 0), -1)
 
-    # Угол и скорость
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    text_angle = f"Angle: {angle:.1f} deg"
-    text_speed = f"Speed: {speed:.2f} px/s"
-    
-    # Рисуем угол поворота
-    cv2.putText(image, text_angle, (int(center[0]) - 80, int(center[1]) - 70),
-                font, 0.6, (0, 0, 255), 2)
-    # Рисуем скорость
-    cv2.putText(image, text_speed, (int(center[0]) - 80, int(center[1]) - 45),
-                font, 0.6, (0, 0, 255), 2)
+    # Добавляем текст с углом
+    # font = cv2.FONT_HERSHEY_SIMPLEX
+    # text = f"Angle: {angle:.1f} deg"
+    # cv2.putText(image, text, (int(center[0]) - 50, int(center[1]) - 30),
+    #             font, 0.7, (0, 0, 255), 2)
 
-    # Линия направления робота
-    line_length = 27
-    end_x = int(center[0] + line_length * math.cos(math.radians(angle)))
-    end_y = int(center[1] + line_length * math.sin(math.radians(angle)))
-    val = image[end_y][end_x].copy()
-    cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)
-    
-    return val
+    # Рисуем линию, показывающую ориентацию
+    # line_length = max(image.shape[0], image.shape[1]) // 4
+    # t_angle = 25
+    line_length = 55
+    pixels_color = []
+    for t_angle in range(-90, 90, 3):
+        end_x = int(center[0] + line_length * math.cos(math.radians(angle+t_angle)))
+        end_y = int(center[1] + line_length * math.sin(math.radians(angle+t_angle)))
+        val = image[end_y][end_x].copy()
+        pixels_color.append(val)
+        # cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)
+    print(len(pixels_color))
+    # end_x_2 = int(center[0] + line_length * math.cos(math.radians(angle+t_angle)))
+    # end_y_2 = int(center[1] + line_length * math.sin(math.radians(angle+t_angle)))
+    # val_2 = image[end_y_2][end_x_2].copy()
+    # cv2.line(image, (int(center[0]), int(center[1])), (end_x_2, end_y_2), (0, 255, 0), 2)
+    # end_x_3 = int(center[0] + line_length * math.cos(math.radians(angle - t_angle)))
+    # end_y_3 = int(center[1] + line_length * math.sin(math.radians(angle - t_angle)))
+    # val_3 = image[end_y_3][end_x_3].copy()
+    # cv2.line(image, (int(center[0]), int(center[1])), (end_x_3, end_y_3), (0, 0, 255), 2)
+    return pixels_color
 
 
 def remove_small_particles(img, min_size=150):
@@ -101,13 +122,6 @@ class BinaryDataHandler:
     def __init__(self, vehicle: Vehicle, connection: SocketConnection):
         self.connection = connection
         self.vehicle = vehicle
-        
-        self.movement = False
-        self.prev_center = None
-        self.prev_time = None
-        self.speed = 0
-        self.speed_buffer = deque(maxlen=3)
-
 
     async def start_driving(self):
         self.example_1()
@@ -120,14 +134,17 @@ class BinaryDataHandler:
 
     # пример получения скриншотов с камер
     def example_1(self):
+        global old_center
         lower = np.array([0, 0, 0])
-        # upper = np.array([179, 30, 187])
-        upper = np.array([179, 48, 187])
+        upper = np.array([179, 30, 187])
+        # upper = np.array([179, 48, 187])
         # Set minimum and maximum HSV values to display
         lower_line = np.array([0, 54, 157])
         upper_line = np.array([60, 255, 210])
         angle = 90
-        start_angle = 0
+        t_work_m = 0.02
+        t_stop_m = 0.02
+        i_iter = 0
         while True:
             # скриншот с камеры 1
             # посылаем на клиент сообщение, с какой камеры сделать скриншот (возможные варианты:
@@ -135,10 +152,10 @@ class BinaryDataHandler:
             self.connection.send_data("camera1")
             # получаем скриншот с камеры 1. Код ниже не будет выполняться, пока не придет скриншот с камеры 1
             image_data = self.connection.receive_data()
-            print("get_image_data")
+            # print("get_image_data")
             nparr = np.frombuffer(image_data, np.uint8)
             images = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            hsv = cv2.cvtColor(images, cv2.COLOR_BGR2HSV)
+            # hsv = cv2.cvtColor(images, cv2.COLOR_BGR2HSV)
 
             try:
                 # Convert to HSV format and color threshold
@@ -152,79 +169,116 @@ class BinaryDataHandler:
                 # ret, frame = video.read()
                 image = remove_small_particles(images)
 
-                # gauss_result_line = cv2.GaussianBlur(result_line, (3, 3), 0)
+                gauss_result_line = cv2.GaussianBlur(result_line, (3, 3), 0)
                 # median_result_line = cv2.medianBlur(gauss_result_line, 3)
-                #
-                # alpha = 5.0  # например, 2.0 — сильный контраст
-                # beta = 0     # можно добавить яркость
-                #
-                # # (опционально) Убираем шум
+
+                alpha = 5.0  # например, 2.0 — сильный контраст
+                beta = 0     # можно добавить яркость
+
+                # (опционально) Убираем шум
                 # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
                 # result_noise = cv2.morphologyEx(median_result_line, cv2.MORPH_OPEN, kernel)
-                #
-                # result_line = cv2.convertScaleAbs(result_noise, alpha=alpha, beta=beta)
+
+                result_line = cv2.convertScaleAbs(gauss_result_line, alpha=alpha, beta=beta)
 
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 alpha = 0.5  # Прозрачность (0-1)
                 blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
-                
-                current_time = time.time()
-
                 for cnt in contours:
+                    # Пропускаем маленькие контуры
                     if cv2.contourArea(cnt) < 100:
                         continue
 
+                    # Преобразуем контур в прямоугольник
                     rect, _, center = contour_to_rotated_rectangle(cnt)
 
-                    # Вычисляем мгновенную скорость
-                    if self.prev_center is not None and self.prev_time is not None:
-                        dx = center[0] - self.prev_center[0]
-                        dy = center[1] - self.prev_center[1]
-                        distance = math.sqrt(dx**2 + dy**2)
-                        dt = current_time - self.prev_time
-                        if dt > 0:
-                            instant_speed = distance / dt
-                            self.speed_buffer.append(instant_speed)
-                            
-                            # Сглаживаем скорость
-                            self.speed = sum(self.speed_buffer) / len(self.speed_buffer)
-                    else:
-                        self.speed = 0
-                        self.speed_buffer.append(self.speed)
-
-                    # Запоминаем для следующего кадра
-                    self.prev_center = center
-                    self.prev_time = current_time
-
-                    # Рисуем прямоугольник с информацией о скорости
-                    alpha = 0.5
-                    blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
-                    color_data = draw_rotated_rectangle(blended, rect, angle, center, self.speed)
-
-                    if self.movement:
-                        if len(color_data) > 0:
-                            if color_data[0] == 0:
-                                if 0 <= start_angle <= 360:
-                                    start_angle += 1
-                                    angle -= 5
-                                else:
-                                    start_angle = 0
-                                    angle = 90
-                                print(start_angle, angle)
-                                self.vehicle.rotate(start_angle)
-                            else:
-                                self.vehicle.setMotorPower(100, 100)
-                                time.sleep(0.05)
-                                self.vehicle.setMotorPower(0, 0)
-                cv2.imshow('Rotated Rectangles', blended)
-
+                    # Рисуем результат
+                    color_data = draw_rotated_rectangle(blended, rect, angle, center)
+                    if i_iter == 0:
+                        old_center = center
+                    count_data = len(color_data)
+                    pass_count_data = 0
+                    for id, i in enumerate(color_data):
+                        if i[0] != 0:
+                            if id < 25:
+                                angle -= 2.4
+                                self.vehicle.rotate(1)
+                                time.sleep(0.4)
+                                # t_work_m = 0.1
+                            elif id > 35:
+                                angle += 2.4
+                                self.vehicle.rotate(-1)
+                                time.sleep(0.4)
+                                # t_work_m = 0.1
+                        else:
+                            pass_count_data += 1
+                        #     self.vehicle.setMotorPower(50, 50)
+                        #     time.sleep(0.007)
+                        #     self.vehicle.setMotorPower(0, 0)
+                        #     time.sleep(0.007)
+                        # print(id, i)
+                    if abs(old_center[0] - center[0]) > 0.5 or abs(old_center[1] - center[1]) > 0.5:
+                        t_work_m = 0.02
+                        t_stop_m = 0.02
+                    for i in color_data[24:36]:
+                        if i[0] != 0:
+                            self.vehicle.setMotorPower(50, 50)
+                            time.sleep(t_work_m)
+                            self.vehicle.setMotorPower(0, 0)
+                            time.sleep(t_stop_m)
+                            print('t_work_m', t_work_m)
+                            print(abs(old_center[0] - center[0]), abs(old_center[1] - center[1]))
+                            print()
+                            if 0 < abs(old_center[0] - center[0]) < 0.3 or 0 < abs(old_center[1] - center[1]) < 0.3:
+                                t_work_m += 1
+                                t_stop_m -= 0.01
+                            break
+                    # print(old_center[0] - center[0])
+                    # if old_center[0] - center[0] < 3 and old_center[1] - center[1] < 3:
+                    #     t_work_m += 0.1
+                    # else:
+                    #     t_work_m -= 0.1
+                    if pass_count_data == count_data:
+                        print("eeeeee")
+                        self.vehicle.setMotorPower(50, 50)
+                        time.sleep(0.1)
+                        self.vehicle.setMotorPower(0, 0)
+                        time.sleep(0.0001)
+                    old_center = center
+                    # print()
+                    # print("color_data", color_data)
+                    # if len(color_data) > 0:
+                    #     print('color_data[0]', color_data[0])
+                    #     if color_data[0] == 0:
+                    #         print("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+                    #         if 0 <= start_angle <= 360:
+                    #             start_angle = 1
+                    #             angle -= 2.4
+                    #         else:
+                    #             start_angle = 0
+                    #             angle = 90
+                    #         # self.vehicle.setMotorPower(0, 0)
+                    #         print(start_angle, angle)
+                    #         self.vehicle.rotate(start_angle)
+                    #         time.sleep(0.3)
+                    #     else:
+                    #         # pass
+                    #         self.vehicle.setMotorPower(100, 100)
+                    #         time.sleep(0.05)
+                            # self.vehicle.setMotorPower(0, 0)
+                # Показываем результат
+                # alpha = 0.5  # Прозрачность (0-1)
+                # blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
+                # alpha = 0.5  # Прозрачность (0-1)
+                # blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
+                # cv2.imshow('Rotated Rectangles', blended)
             except Exception as e:
                 print(e)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            i_iter=1
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
 
     # # пример использования setMotorPower и rotate
     # def example_4(self):
@@ -249,4 +303,4 @@ class BinaryDataHandler:
 async def control_vehicle(vehicle: Vehicle, connection: SocketConnection):
     data_handler = BinaryDataHandler(vehicle, connection)
     await data_handler.start_driving()
-    
+
