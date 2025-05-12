@@ -1,10 +1,8 @@
 import cv2
 import numpy as np
 
-
 def nothing(x):
     pass
-
 
 while True:
     image = cv2.imread('screenshot_cam0.webp')
