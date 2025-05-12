@@ -97,6 +97,7 @@ def remove_small_particles(img, min_size=150):
 
     return result
 
+
 class BinaryDataHandler:
     def __init__(self, vehicle: Vehicle, connection: SocketConnection):
         self.connection = connection
@@ -140,15 +141,6 @@ class BinaryDataHandler:
                 image = remove_small_particles(images)
                 
                 result_line = cv2.blur(result_line,(6,6))
-                
-                # Apply hue change (wrap around for values outside 0-179)
-                result_line[..., 0] = (result_line[..., 0] + 6) % 180
-
-                # Apply saturation and value changes with clipping (0-255)
-                result_line[..., 1] = np.clip(result_line[..., 1] + 16, 0, 255)
-                result_line[..., 2] = np.clip(result_line[..., 2] + 3, 0, 255)
-
-                result_line = cv2.cvtColor(result_line, cv2.COLOR_HSV2BGR)
 
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
