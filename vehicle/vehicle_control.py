@@ -154,11 +154,11 @@ class BinaryDataHandler:
                 alpha = 5.0  # например, 2.0 — сильный контраст
                 beta = 0     # можно добавить яркость
 
-                # (опционально) Убираем шум
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-                result_noise = cv2.morphologyEx(median_result_line, cv2.MORPH_OPEN, kernel)
+                # # (опционально) Убираем шум
+                # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                # result_noise = cv2.morphologyEx(median_result_line, cv2.MORPH_OPEN, kernel)
 
-                result_line = cv2.convertScaleAbs(result_noise, alpha=alpha, beta=beta)
+                result_line = cv2.convertScaleAbs(median_result_line, alpha=alpha, beta=beta)
 
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
@@ -190,10 +190,10 @@ class BinaryDataHandler:
                             print(start_angle, angle)
                             self.vehicle.rotate(start_angle)
                         else:
-                            # pass
-                            self.vehicle.setMotorPower(100, 100)
-                            time.sleep(0.05)
-                            self.vehicle.setMotorPower(0, 0)
+                            pass
+                            # self.vehicle.setMotorPower(100, 100)
+                            
+                            # self.vehicle.setMotorPower(0, 0)
                 # Показываем результат
                 # alpha = 0.5  # Прозрачность (0-1)
                 # blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
