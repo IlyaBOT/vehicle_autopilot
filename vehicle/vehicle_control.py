@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import math
 
+
 def contour_to_rotated_rectangle(contour):
     # Получаем rotated rectangle (повернутый прямоугольник)
     rect = cv2.minAreaRect(contour)
@@ -36,6 +37,7 @@ def contour_to_rotated_rectangle(contour):
 
     return box, angle, center
 
+
 def draw_rotated_rectangle(image, box, angle, center):
     """
     Рисует прямоугольник и информацию об угле на изображении
@@ -60,11 +62,13 @@ def draw_rotated_rectangle(image, box, angle, center):
 
     # Рисуем линию, показывающую ориентацию
     # line_length = max(image.shape[0], image.shape[1]) // 4
-    line_length = 23
+    line_length = 27
     end_x = int(center[0] + line_length * math.cos(math.radians(angle)))
     end_y = int(center[1] + line_length * math.sin(math.radians(angle)))
-    print(image[end_y][end_x])
-    cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)    
+    val = image[end_y][end_x].copy()
+    cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)
+    return val
+
 
 def remove_small_particles(img, min_size=150):
     # Проверяем, цветное ли изображение (3 канала)
@@ -118,9 +122,12 @@ class BinaryDataHandler:
         # Set minimum and maximum HSV values to display
         lower_line = np.array([0, 54, 157])
         upper_line = np.array([60, 255, 210])
+        angle = 90
+        start_angle = 0
         while True:
             # скриншот с камеры 1
-            # посылаем на клиент сообщение, с какой камеры сделать скриншот (возможные варианты: camera1, camera2, camera3, camera4, camera5, camera6)
+            # посылаем на клиент сообщение, с какой камеры сделать скриншот (возможные варианты:
+            # camera1, camera2, camera3, camera4, camera5, camera6)
             self.connection.send_data("camera1")
             # получаем скриншот с камеры 1. Код ниже не будет выполняться, пока не придет скриншот с камеры 1
             image_data = self.connection.receive_data()
@@ -157,13 +164,30 @@ class BinaryDataHandler:
                         continue
 
                     # Преобразуем контур в прямоугольник
-                    rect, angle, center = contour_to_rotated_rectangle(cnt)
+                    rect, _, center = contour_to_rotated_rectangle(cnt)
 
                     # Рисуем результат
                     alpha = 0.5  # Прозрачность (0-1)
                     blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
-                    draw_rotated_rectangle(blended, rect, angle, center)
-
+                    color_data = draw_rotated_rectangle(blended, rect, angle, center)
+                    if len(color_data) > 0:
+                        # print('color_data[0]', color_data[0])
+                        if color_data[0] == 0:
+                            # print("EEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+                            if 0 <= start_angle <= 360:
+                                start_angle += 1
+                                angle -= 5
+                            else:
+                                start_angle = 0
+                                angle = 90
+                            # self.vehicle.setMotorPower(0, 0)
+                            print(start_angle, angle)
+                            self.vehicle.rotate(start_angle)
+                        else:
+                            # pass
+                            self.vehicle.setMotorPower(100, 100)
+                            time.sleep(0.05)
+                            self.vehicle.setMotorPower(0, 0)
                 # Показываем результат
                 # alpha = 0.5  # Прозрачность (0-1)
                 # blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
@@ -175,133 +199,6 @@ class BinaryDataHandler:
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-            
-            # self.save_image(image_data, "camera1")
-
-    #     # # скриншот с камеры 2
-    #     # self.connection.send_data("camera2")
-    #     #
-    #     # image_data = self.connection.receive_data()
-    #     #
-    #     # self.save_image(image_data, "camera2")
-    #     #
-    #     # # скриншот с камеры 3
-    #     # self.connection.send_data("camera3")
-    #     #
-    #     # image_data = self.connection.receive_data()
-    #     #
-    #     # self.save_image(image_data, "camera3")
-    #     #
-    #     # # скриншот с камеры 4
-    #     # self.connection.send_data("camera4")
-    #     #
-    #     # image_data = self.connection.receive_data()
-    #     #
-    #     # self.save_image(image_data, "camera4")
-    #     #
-    #     # # скриншот с камеры 5
-    #     # self.connection.send_data("camera5")
-    #     #
-    #     # image_data = self.connection.receive_data()
-    #     #
-    #     # self.save_image(image_data, "camera5")
-    #     #
-    #     # # скриншот с камеры 6
-    #     # self.connection.send_data("camera6")
-    #     #
-    #     # image_data = self.connection.receive_data()
-    #     #
-    #     # self.save_image(image_data, "camera6")
-
-    # # пример управления роботом последовательным запуском команд управления
-    # def example_2(self):
-    #     # первый параметр - мощность вращения левых колес в процентах, второй параметр - мощность вращения правых колес.
-    #     # если значение положительное, то колесо вращается по часовой стрелке, если отрицательно, то против часовой стрелки.
-    #     self.vehicle.setMotorPower(100, 100)
-    #     time.sleep(1)
-
-    #     self.vehicle.setMotorPower(100, -100)
-    #     time.sleep(1)
-
-    #     self.vehicle.setMotorPower(60, 60)
-    #     time.sleep(3)
-
-    #     self.vehicle.setMotorPower(100, -100)
-    #     time.sleep(3)
-
-    #     self.vehicle.setMotorPower(50, 50)
-    #     time.sleep(1)
-
-    #     self.vehicle.setMotorPower(100, -80)
-    #     time.sleep(1.5)
-
-    #     self.vehicle.setMotorPower(70, 70)
-    #     time.sleep(4)
-
-    # # пример получения скриншотов и управления роботом последовательным запуском команд управления
-    # def example_3(self):
-    #     # скриншот с камеры 1
-    #     self.connection.send_data("camera1")
-
-    #     image_data = self.connection.receive_data()
-
-    #     self.save_image(image_data)
-
-    #     self.vehicle.setMotorPower(100, 100)
-    #     time.sleep(1)
-
-    #     # скриншот с камеры 2
-    #     self.connection.send_data("camera2")
-
-    #     image_data = self.connection.receive_data()
-
-    #     self.save_image(image_data)
-
-    #     self.vehicle.setMotorPower(-100, 100)
-    #     time.sleep(1)
-
-    #     # скриншот с камеры 3
-    #     self.connection.send_data("camera3")
-
-    #     image_data = self.connection.receive_data()
-
-    #     self.save_image(image_data)
-
-    #     self.vehicle.setMotorPower(60, 60)
-    #     time.sleep(3)
-
-    #     # скриншот с камеры 4
-    #     self.connection.send_data("camera4")
-
-    #     image_data = self.connection.receive_data()
-
-    #     self.save_image(image_data)
-
-    #     self.vehicle.setMotorPower(-100, 100)
-    #     time.sleep(3)
-
-    #     # скриншот с камеры 5
-    #     self.connection.send_data("camera5")
-
-    #     image_data = self.connection.receive_data()
-
-    #     self.save_image(image_data)
-
-    #     self.vehicle.setMotorPower(50, 50)
-    #     time.sleep(1)
-
-    #     # скриншот с камеры 6
-    #     self.connection.send_data("camera6")
-
-    #     image_data = self.connection.receive_data()
-
-    #     self.save_image(image_data)
-
-    #     self.vehicle.setMotorPower(-100, 80)
-    #     time.sleep(1.5)
-
-    #     self.vehicle.setMotorPower(70, 70)
-    #     time.sleep(4)
 
     # # пример использования setMotorPower и rotate
     # def example_4(self):
@@ -321,6 +218,7 @@ class BinaryDataHandler:
 
     #     self.vehicle.rotate(180)
     #     time.sleep(1)
+
 
 async def control_vehicle(vehicle: Vehicle, connection: SocketConnection):
     data_handler = BinaryDataHandler(vehicle, connection)
