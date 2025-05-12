@@ -62,11 +62,21 @@ def draw_rotated_rectangle(image, box, angle, center):
 
     # Рисуем линию, показывающую ориентацию
     # line_length = max(image.shape[0], image.shape[1]) // 4
-    line_length = 27
-    end_x = int(center[0] + line_length * math.cos(math.radians(angle)))
-    end_y = int(center[1] + line_length * math.sin(math.radians(angle)))
-    val = image[end_y][end_x].copy()
-    cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)
+    # t_angle = 25
+    line_length = 35
+    for t_angle in range(-30, 30, 10):
+        end_x = int(center[0] + line_length * math.cos(math.radians(angle+t_angle)))
+        end_y = int(center[1] + line_length * math.sin(math.radians(angle+t_angle)))
+        val = image[end_y][end_x].copy()
+        cv2.line(image, (int(center[0]), int(center[1])), (end_x, end_y), (255, 0, 0), 2)
+    # end_x_2 = int(center[0] + line_length * math.cos(math.radians(angle+t_angle)))
+    # end_y_2 = int(center[1] + line_length * math.sin(math.radians(angle+t_angle)))
+    # val_2 = image[end_y_2][end_x_2].copy()
+    # cv2.line(image, (int(center[0]), int(center[1])), (end_x_2, end_y_2), (0, 255, 0), 2)
+    # end_x_3 = int(center[0] + line_length * math.cos(math.radians(angle - t_angle)))
+    # end_y_3 = int(center[1] + line_length * math.sin(math.radians(angle - t_angle)))
+    # val_3 = image[end_y_3][end_x_3].copy()
+    # cv2.line(image, (int(center[0]), int(center[1])), (end_x_3, end_y_3), (0, 0, 255), 2)
     return val
 
 
@@ -101,6 +111,7 @@ def remove_small_particles(img, min_size=150):
 
     return result
 
+
 class BinaryDataHandler:
     def __init__(self, vehicle: Vehicle, connection: SocketConnection):
         self.connection = connection
@@ -132,10 +143,11 @@ class BinaryDataHandler:
             self.connection.send_data("camera1")
             # получаем скриншот с камеры 1. Код ниже не будет выполняться, пока не придет скриншот с камеры 1
             image_data = self.connection.receive_data()
+            print("get_image_data")
             nparr = np.frombuffer(image_data, np.uint8)
             images = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             hsv = cv2.cvtColor(images, cv2.COLOR_BGR2HSV)
-            
+
             try:
                 # Convert to HSV format and color threshold
                 hsv_line = cv2.cvtColor(images, cv2.COLOR_BGR2HSV)
@@ -147,23 +159,24 @@ class BinaryDataHandler:
                 images = cv2.bitwise_and(images, images, mask=mask)
                 # ret, frame = video.read()
                 image = remove_small_particles(images)
-                
-                gauss_result_line = cv2.GaussianBlur(result_line, (3, 3), 0)
-                median_result_line = cv2.medianBlur(gauss_result_line, 3)
-                
-                alpha = 5.0  # например, 2.0 — сильный контраст
-                beta = 0     # можно добавить яркость
 
-                # (опционально) Убираем шум
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-                result_noise = cv2.morphologyEx(median_result_line, cv2.MORPH_OPEN, kernel)
-
-                result_line = cv2.convertScaleAbs(result_noise, alpha=alpha, beta=beta)
+                # gauss_result_line = cv2.GaussianBlur(result_line, (3, 3), 0)
+                # median_result_line = cv2.medianBlur(gauss_result_line, 3)
+                #
+                # alpha = 5.0  # например, 2.0 — сильный контраст
+                # beta = 0     # можно добавить яркость
+                #
+                # # (опционально) Убираем шум
+                # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                # result_noise = cv2.morphologyEx(median_result_line, cv2.MORPH_OPEN, kernel)
+                #
+                # result_line = cv2.convertScaleAbs(result_noise, alpha=alpha, beta=beta)
 
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+                alpha = 0.5  # Прозрачность (0-1)
+                blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
                 for cnt in contours:
                     # Пропускаем маленькие контуры
                     if cv2.contourArea(cnt) < 100:
@@ -173,27 +186,27 @@ class BinaryDataHandler:
                     rect, _, center = contour_to_rotated_rectangle(cnt)
 
                     # Рисуем результат
-                    alpha = 0.5  # Прозрачность (0-1)
-                    blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
                     color_data = draw_rotated_rectangle(blended, rect, angle, center)
+                    print("color_data", color_data)
                     if len(color_data) > 0:
-                        # print('color_data[0]', color_data[0])
+                        print('color_data[0]', color_data[0])
                         if color_data[0] == 0:
-                            print("EEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+                            print("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
                             if 0 <= start_angle <= 360:
-                                start_angle += 1
-                                angle -= 5
+                                start_angle = 1
+                                angle -= 2.4
                             else:
                                 start_angle = 0
                                 angle = 90
                             # self.vehicle.setMotorPower(0, 0)
                             print(start_angle, angle)
                             self.vehicle.rotate(start_angle)
+                            time.sleep(0.3)
                         else:
                             # pass
                             self.vehicle.setMotorPower(100, 100)
                             time.sleep(0.05)
-                            self.vehicle.setMotorPower(0, 0)
+                            # self.vehicle.setMotorPower(0, 0)
                 # Показываем результат
                 # alpha = 0.5  # Прозрачность (0-1)
                 # blended = cv2.addWeighted(image, alpha, result_line, 1 - alpha, 0)
