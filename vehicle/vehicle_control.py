@@ -12,7 +12,6 @@ import threading
 
 old_center = []
 
-
 def remove_small_particles(img, min_size=150):
     # Проверяем, цветное ли изображение (3 канала)
     if len(img.shape) == 3:
@@ -43,7 +42,6 @@ def remove_small_particles(img, min_size=150):
         result = cv2.bitwise_and(img, img, mask=mask)
 
     return result
-
 
 class Camera:
     def __init__(self):

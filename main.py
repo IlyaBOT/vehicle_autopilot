@@ -7,7 +7,7 @@ from connection.AsyncSocketConnection import AsyncSocketConnection
 from connection.SharedMemoryConnection import SharedMemoryConnection
 from services.logger import set_logger_config
 from vehicle.Vehicle import Vehicle  
-from vehicle.vehicle_control import control_vehicle
+from vehicle.my_vehicle_control import control_vehicle
 
 async def start():
     connection = SocketConnection()
